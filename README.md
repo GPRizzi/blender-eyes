@@ -1,4 +1,4 @@
-# blender-vista
+# blender-eyes
 
 **Eyes and a ruler for AI agents working on Blender models they cannot see.**
 
@@ -6,7 +6,7 @@ An agent editing a `.blend` file is working blind. It moves a mesh, applies a
 script, changes a scale — and then reports "done" based on what it *believes*
 happened. On 3D geometry that is the fastest way to accumulate silent disasters.
 
-`blender-vista` gives an agent three things:
+`blender-eyes` gives an agent three things:
 
 - **eyes** — repeatable renders it can open and actually look at
 - **a ruler** — real measurements in metres it can assert on
@@ -36,8 +36,8 @@ That is the point. It does not model for you. It removes the blindness.
 ## Install
 
 ```bash
-git clone https://github.com/GPRizzi/blender-vista.git
-cd blender-vista && chmod +x vista scripts/*.py
+git clone https://github.com/GPRizzi/blender-eyes.git
+cd blender-eyes && chmod +x eyes scripts/*.py
 ```
 
 Point `$BLENDER` at your Blender binary if it is not at the macOS default
@@ -55,13 +55,13 @@ do not.
 ### Look
 
 ```bash
-./vista rendi model.blend
-./vista rendi model.blend --solo MainBody --viste fronte,alto,iso
-./vista rendi model.blend --etichetta before
+./eyes render model.blend
+./eyes render model.blend --only MainBody --views front,top,iso
+./eyes render model.blend --label before
 ```
 
-Renders into `.vista/` from fixed viewpoints — `fronte, retro, lato, sinistra,
-alto, sotto, iso` — with an orthographic camera and fixed lighting. Two renders
+Renders into `.eyes/` from fixed viewpoints — `front, back, side, left,
+top, bottom, iso` — with an orthographic camera and fixed lighting. Two renders
 taken hours apart line up pixel for pixel, which is what makes comparison mean
 anything.
 
@@ -71,10 +71,35 @@ of compact models.
 
 Then **open the PNGs**. That is the one step you cannot delegate to a number.
 
+#### Choose your own viewpoint
+
+Presets are the repeatable baseline, but an agent often needs to look at
+something specific — the seam between two parts, the underside of a joint, a
+detail that no fixed view happens to show. So it can drive the camera:
+
+```bash
+./eyes render model.blend --angles "45,20 200,60"    # azimuth,elevation degrees
+./eyes render model.blend --from "10,-4,3" --at "0,0,1.5"   # exact position
+./eyes render model.blend --angles "90,0" --zoom 0.3        # close in
+./eyes render model.blend --perspective --focal 35          # perspective
+```
+
+`--angles` takes `azimuth,elevation` pairs in degrees — azimuth turns around Z
+(0 = front), elevation lifts above the horizon. It is the form an agent reasons
+about most easily: *"let me look from 45 degrees around and 20 up"*. Each pair
+becomes its own image, named `az45-el20.png`.
+
+`--at` moves what the camera aims at, so you can frame a detail instead of the
+whole bounding box. `--zoom 0.3` renders three tenths of the frame width — a
+close-up. Every one of these still writes its exact camera parameters to
+`manifest.json`, so a custom angle is as repeatable as a preset.
+
+![The same scene from a custom angle: azimuth 55, elevation 18](docs/az55-el18.png)
+
 ### Measure
 
 ```bash
-./vista fatti model.blend --solo MainBody
+./eyes facts model.blend --only MainBody
 ```
 
 Writes JSON with per-object dimensions, centre, origin, scale, rotation, face
@@ -92,7 +117,7 @@ anomalies it found on its own:
 ### Verify
 
 ```bash
-./vista confronta .vista/before .vista/after
+./eyes diff .eyes/before .eyes/after
 ```
 
 Per view: percentage of changed pixels, magnitude, and a diff image that lights
@@ -105,19 +130,19 @@ object hidden from render.
 
 ## The loop to follow
 
-1. `vista rendi <blend> --etichetta before` — and **look**
-2. `vista fatti <blend>` — note the starting anomalies
+1. `eyes render <blend> --label before` — and **look**
+2. `eyes facts <blend>` — note the starting anomalies
 3. make the change
-4. `vista rendi <blend> --etichetta after`
-5. `vista confronta .vista/before .vista/after`
+4. `eyes render <blend> --label after`
+5. `eyes diff .eyes/before .eyes/after`
 6. **open the diff image** — is the red where you wanted it?
-7. `vista fatti <blend>` again — did the anomalies go? did new ones appear?
+7. `eyes facts <blend>` again — did the anomalies go? did new ones appear?
 
 Only after step 7 is it done. Before that it is an opinion.
 
 ## Using it with Claude Code
 
-Copy the folder into `~/.claude/skills/blender-vista/`. The bundled `SKILL.md`
+Copy the folder into `~/.claude/skills/blender-eyes/`. The bundled `SKILL.md`
 (Italian; the English instructions above are equivalent) makes Claude reach for
 it automatically whenever it touches a mesh, a position, a scale or a material.
 
@@ -129,11 +154,11 @@ The single rule worth enforcing in your project instructions:
 ## Notes
 
 - Whole-scene render of 216 objects / 3.3 M faces: about 13 seconds (EEVEE).
-- Use `--solo <name>` on large files to work on one part in seconds.
-- `--lato 1400` for detail; the default 900 is enough for shape.
-- Comparison requires renders of the same size — if you change `--lato` between
+- Use `--only <name>` on large files to work on one part in seconds.
+- `--side 1400` for detail; the default 900 is enough for shape.
+- Comparison requires renders of the same size — if you change `--side` between
   before and after, it tells you instead of returning a meaningless number.
-- Add `.vista/` to your `.gitignore`.
+- Add `.eyes/` to your `.gitignore`.
 
 ## What it does not do
 

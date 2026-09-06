@@ -1,0 +1,54 @@
+#!/bin/bash
+# eyes — sight and a ruler for working on 3D models you cannot see.
+#
+#   eyes render <file.blend> [--label before] [--only Part] [--views front,top,iso]
+#   eyes render <file.blend> --angles "45,20 120,60"     # your own angles
+#   eyes render <file.blend> --from "10,-4,3" --at "0,0,1"  # exact camera
+#   eyes facts  <file.blend> [--only Part]
+#   eyes diff   <before-folder> <after-folder>
+#   eyes cycle  <file.blend>        # render before, wait, render after, diff
+#
+# Images land in .eyes/ inside the project (or --out).
+# After `render`, OPEN THE PNGs — that is the whole point.
+
+set -uo pipefail
+BLENDER="${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CMD="${1:-help}"; shift 2>/dev/null || true
+
+[ -x "$BLENDER" ] || { echo "Blender not found at $BLENDER — set \$BLENDER"; exit 1; }
+
+quiet() { grep -vE "^(Fra:|Info:|Read prefs|Read blend|Blender [0-9]|Time:|Saved:|unregister|.*addon (un)?registered|Cannot read|Update armature|Blender quit)|^$"; }
+
+case "$CMD" in
+  render)
+    BLEND="${1:?need a .blend file}"; shift
+    OUTDIR=".eyes"
+    for ((i=1; i<=$#; i++)); do
+      [ "${!i}" = "--out" ] && { j=$((i+1)); OUTDIR="${!j}"; }
+    done
+    "$BLENDER" -b "$BLEND" -P "$HERE/scripts/render.py" -- --out "$OUTDIR" "$@" 2>&1 | quiet
+    echo
+    echo "-> NOW OPEN THE IMAGES. Rendering without looking achieves nothing."
+    ;;
+  facts)
+    BLEND="${1:?need a .blend file}"; shift
+    "$BLENDER" -b "$BLEND" -P "$HERE/scripts/facts.py" -- "$@" 2>&1 | quiet
+    ;;
+  diff)
+    python3 "$HERE/scripts/diff.py" "$@"
+    ;;
+  cycle)
+    BLEND="${1:?need a .blend file}"; shift
+    echo "-- 1/3  rendering BEFORE"
+    "$BLENDER" -b "$BLEND" -P "$HERE/scripts/render.py" -- --out .eyes --label before "$@" 2>&1 | quiet
+    echo; echo "-- 2/3  make your change to the model now, then press ENTER"
+    read -r _
+    echo "-- 3/3  rendering AFTER and diffing"
+    "$BLENDER" -b "$BLEND" -P "$HERE/scripts/render.py" -- --out .eyes --label after "$@" 2>&1 | quiet
+    python3 "$HERE/scripts/diff.py" .eyes/before .eyes/after
+    ;;
+  *)
+    sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    ;;
+esac
