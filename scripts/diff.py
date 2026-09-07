@@ -81,7 +81,7 @@ def main():
                             os.path.join(a.after, f'{v}.png'),
                             os.path.join(out, f'{v}-diff.png'))
         results[v] = r
-        if 'error' not in r and r['pixel_cambiati_pct'] >= a.threshold:
+        if 'error' not in r and r['changed_pct'] >= a.threshold:
             changed_views.append(v)
 
     print(f"=== diff: {os.path.basename(a.before)} -> {os.path.basename(a.after)} ===\n")
